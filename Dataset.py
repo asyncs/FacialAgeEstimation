@@ -18,7 +18,7 @@ class Dataset:
 
         for image in os.listdir(path):
             image_name = os.fsdecode(image)
-            image = cv.imread(path+image_name)
+            image = cv.imread(path+image_name)[:, :, 0].reshape(91, 91, 1)
             label = int(image_name[:3])
             data_array.append(image)
             label_array.append(label)
