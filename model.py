@@ -3,15 +3,16 @@ import tensorflow as tf
 import pickle
 
 
-def conv_block(filter_no, filter_size, pooling):
+def conv_block(filter_no, filter_size, pooling, batch_norm):
     layers = []
 
     conv_layer = tf.keras.layers.Conv2D(filters=filter_no, kernel_size=filter_size, padding='same',
                                         kernel_regularizer=tf.keras.regularizers.L2(5e-4))
     layers.append(conv_layer)
     layers.append(tf.keras.layers.ReLU())
-    #layers.append(tf.keras.layers.LeakyReLU(alpha=0.1))
-    layers.append(tf.keras.layers.BatchNormalization())
+    # layers.append(tf.keras.layers.LeakyReLU(alpha=0.1))
+    if batch_norm:
+        layers.append(tf.keras.layers.BatchNormalization())
     if pooling:
         layers.append(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
 
@@ -137,47 +138,268 @@ def explore(train_images, train_labels, valid_images, valid_labels, model_params
         pickle.dump(errors, fp)
 
 
-def age_estimator():
+def regression_head():
+    regression_head = []
+    flatten_layer = tf.keras.layers.Flatten()
+    regression_head.append(flatten_layer)
+
+    fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append((tf.keras.layers.BatchNormalization()))
+    regression_head.append((tf.keras.layers.ReLU()))
+    regression_head.append((tf.keras.layers.Dropout(0.15)))
+
+    fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append(tf.keras.layers.BatchNormalization())
+    regression_head.append(tf.keras.layers.ReLU())
+    regression_head.append(tf.keras.layers.Dropout(0.15))
+
+    fc_layer = tf.keras.layers.Dense(32, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append(tf.keras.layers.BatchNormalization())
+    regression_head.append(tf.keras.layers.ReLU())
+    regression_head.append(tf.keras.layers.Dropout(0.15))
+
+    output = tf.keras.layers.Dense(1)
+    regression_head.append(output)
+
+    return regression_head
+
+
+def regression_head_size(size):
+    regression_head = []
+    flatten_layer = tf.keras.layers.Flatten()
+    regression_head.append(flatten_layer)
+
+    fc_layer = tf.keras.layers.Dense(size[0], kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append((tf.keras.layers.BatchNormalization()))
+    regression_head.append((tf.keras.layers.ReLU()))
+    regression_head.append((tf.keras.layers.Dropout(0.15)))
+
+    fc_layer = tf.keras.layers.Dense(size[1], kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append(tf.keras.layers.BatchNormalization())
+    regression_head.append(tf.keras.layers.ReLU())
+    regression_head.append(tf.keras.layers.Dropout(0.15))
+
+    fc_layer = tf.keras.layers.Dense(size[2], kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    regression_head.append(fc_layer)
+    regression_head.append(tf.keras.layers.BatchNormalization())
+    regression_head.append(tf.keras.layers.ReLU())
+    regression_head.append(tf.keras.layers.Dropout(0.15))
+
+    output = tf.keras.layers.Dense(1)
+    regression_head.append(output)
+
+    return regression_head
+
+
+def generic_model(pooling, batch_norm, filters):
+    custom_model = tf.keras.Sequential()
+    custom_model.add(tf.keras.Input(shape=(91, 91, 1)))
+    for i in range(4):
+        conv_layers = conv_block(filter_no=filters[i], filter_size=(3, 3), pooling=pooling[i], batch_norm=batch_norm[i])
+        for layer in conv_layers:
+            custom_model.add(layer)
+    for layer in regression_head():
+        custom_model.add(layer)
+    return custom_model
+
+
+def generic_model_regression_size(pooling, batch_norm, filters, size):
+    custom_model = tf.keras.Sequential()
+    custom_model.add(tf.keras.Input(shape=(91, 91, 1)))
+    for i in range(4):
+        conv_layers = conv_block(filter_no=filters[i], filter_size=(3, 3), pooling=pooling[i], batch_norm=batch_norm[i])
+        for layer in conv_layers:
+            custom_model.add(layer)
+    for layer in regression_head_size(size):
+        custom_model.add(layer)
+    return custom_model
+
+
+def generic_model_regression(pooling, batch_norm, filters, regression):
+    custom_model = tf.keras.Sequential()
+    custom_model.add(tf.keras.Input(shape=(91, 91, 1)))
+    for i in range(4):
+        conv_layers = conv_block(filter_no=filters[i], filter_size=(3, 3), pooling=pooling[i], batch_norm=batch_norm[i])
+        for layer in conv_layers:
+            custom_model.add(layer)
+
+    if regression == 1:
+        regression_h = []
+        flatten_layer = tf.keras.layers.Flatten()
+        regression_h.append(flatten_layer)
+
+        fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append((tf.keras.layers.BatchNormalization()))
+        regression_h.append((tf.keras.layers.ReLU()))
+        regression_h.append((tf.keras.layers.Dropout(0.15)))
+
+        output = tf.keras.layers.Dense(1)
+        regression_h.append(output)
+
+        for layer in regression_h:
+            custom_model.add(layer)
+
+    elif regression == 2:
+        regression_h = []
+        flatten_layer = tf.keras.layers.Flatten()
+        regression_h.append(flatten_layer)
+
+        fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append((tf.keras.layers.BatchNormalization()))
+        regression_h.append((tf.keras.layers.ReLU()))
+        regression_h.append((tf.keras.layers.Dropout(0.15)))
+
+        fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append(tf.keras.layers.BatchNormalization())
+        regression_h.append(tf.keras.layers.ReLU())
+        regression_h.append(tf.keras.layers.Dropout(0.15))
+
+        output = tf.keras.layers.Dense(1)
+        regression_h.append(output)
+
+        for layer in regression_h:
+            custom_model.add(layer)
+    else:
+        regression_h = []
+        flatten_layer = tf.keras.layers.Flatten()
+        regression_h.append(flatten_layer)
+
+        fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append((tf.keras.layers.BatchNormalization()))
+        regression_h.append((tf.keras.layers.ReLU()))
+        regression_h.append((tf.keras.layers.Dropout(0.15)))
+
+        fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append(tf.keras.layers.BatchNormalization())
+        regression_h.append(tf.keras.layers.ReLU())
+        regression_h.append(tf.keras.layers.Dropout(0.15))
+
+        fc_layer = tf.keras.layers.Dense(32, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+        regression_h.append(fc_layer)
+        regression_h.append(tf.keras.layers.BatchNormalization())
+        regression_h.append(tf.keras.layers.ReLU())
+        regression_h.append(tf.keras.layers.Dropout(0.15))
+
+        output = tf.keras.layers.Dense(1)
+        regression_h.append(output)
+
+        for layer in regression_h:
+            custom_model.add(layer)
+
+    return custom_model
+
+def generic_model_regression_batchnorm(batch, cnn_l2=5e-4, fc_l2=0.001, fc_dropout=0.15):
     custom_model = tf.keras.Sequential()
     custom_model.add(tf.keras.Input(shape=(91, 91, 1)))
 
-    conv_layers = conv_block(16, (3, 3), pooling=True)
-    for layer in conv_layers:
-        custom_model.add(layer)
+    custom_model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2)))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
 
-    conv_layers = conv_block(32, (3, 3), pooling=False)
-    for layer in conv_layers:
-        custom_model.add(layer)
+    custom_model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2)))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
 
-    conv_layers = conv_block(64, (3, 3), pooling=True)
-    for layer in conv_layers:
-        custom_model.add(layer)
+    custom_model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2)))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
 
-    conv_layers = conv_block(128, (3, 3), pooling=True)
-    for layer in conv_layers:
-        custom_model.add(layer)
-
+    custom_model.add(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2)))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
 
     flatten_layer = tf.keras.layers.Flatten()
     custom_model.add(flatten_layer)
 
-    fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(fc_l2))
     custom_model.add(fc_layer)
-    custom_model.add(tf.keras.layers.BatchNormalization())
+    if batch[0]:
+        custom_model.add(tf.keras.layers.BatchNormalization())
     custom_model.add(tf.keras.layers.ReLU())
-    custom_model.add(tf.keras.layers.Dropout(0.15))
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
 
-    fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(fc_l2))
     custom_model.add(fc_layer)
-    custom_model.add(tf.keras.layers.BatchNormalization())
+    if batch[1]:
+        custom_model.add(tf.keras.layers.BatchNormalization())
     custom_model.add(tf.keras.layers.ReLU())
-    custom_model.add(tf.keras.layers.Dropout(0.15))
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
 
-    fc_layer = tf.keras.layers.Dense(32, kernel_regularizer=tf.keras.regularizers.L2(0.001))
+    fc_layer = tf.keras.layers.Dense(32, kernel_regularizer=tf.keras.regularizers.L2(fc_l2))
+    custom_model.add(fc_layer)
+    if batch[2]:
+        custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
+
+    output = tf.keras.layers.Dense(1)
+    custom_model.add(output)
+
+    return custom_model
+
+
+def age_estimator(initializer, cnn_l2=1e-4, fc_l2=1e-4, fc_dropout=0.15):
+    custom_model = tf.keras.Sequential()
+    custom_model.add(tf.keras.Input(shape=(91, 91, 1)))
+
+    custom_model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2), kernel_initializer=initializer))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
+
+    custom_model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2), kernel_initializer=initializer))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
+
+    custom_model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2), kernel_initializer=initializer))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
+
+    custom_model.add(tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same',
+                                            kernel_regularizer=tf.keras.regularizers.L2(cnn_l2), kernel_initializer=initializer))
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'))
+
+    flatten_layer = tf.keras.layers.Flatten()
+    custom_model.add(flatten_layer)
+
+    fc_layer = tf.keras.layers.Dense(128, kernel_regularizer=tf.keras.regularizers.L2(fc_l2), kernel_initializer=initializer)
     custom_model.add(fc_layer)
     custom_model.add(tf.keras.layers.BatchNormalization())
     custom_model.add(tf.keras.layers.ReLU())
-    custom_model.add(tf.keras.layers.Dropout(0.15))
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
+
+    fc_layer = tf.keras.layers.Dense(64, kernel_regularizer=tf.keras.regularizers.L2(fc_l2), kernel_initializer=initializer)
+    custom_model.add(fc_layer)
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
+
+    fc_layer = tf.keras.layers.Dense(32, kernel_regularizer=tf.keras.regularizers.L2(fc_l2), kernel_initializer=initializer)
+    custom_model.add(fc_layer)
+    custom_model.add(tf.keras.layers.BatchNormalization())
+    custom_model.add(tf.keras.layers.ReLU())
+    custom_model.add(tf.keras.layers.Dropout(fc_dropout))
 
     output = tf.keras.layers.Dense(1)
     custom_model.add(output)

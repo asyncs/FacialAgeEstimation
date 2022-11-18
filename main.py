@@ -1,7 +1,6 @@
 import os
 import pickle
 import model
-import visualization
 import metric
 import numpy as np
 from Dataset import Dataset
@@ -10,9 +9,9 @@ import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == '__main__':
-    train_path = "UTKFace_downsampled/training_set/"
-    valid_path = "UTKFace_downsampled/validation_set/"
-    test_path = "UTKFace_downsampled/test_set/"
+    train_path = "/home/sarp/Documents/CS559/Homework/FacialAgeEstimation/UTKFace_downsampled/training_set/"
+    valid_path = "/home/sarp/Documents/CS559/Homework/FacialAgeEstimation/UTKFace_downsampled/validation_set/"
+    test_path = "/home/sarp/Documents/CS559/Homework/FacialAgeEstimation/UTKFace_downsampled/test_set/"
 
     train_set = Dataset(train_path)
     train_images, train_labels = train_set.get_data()
@@ -29,18 +28,12 @@ if __name__ == '__main__':
 
     # model.explore(train_images, train_labels, valid_images, valid_labels, model_params)
 
-    with open('explore_error', 'rb') as fp:
-        explore_errors = pickle.load(fp)
-
-    # visualization.explore_visual(model_params, explore_errors)
-    train_images_norm = train_images/255.0
-    valid_images_norm = valid_images/255.0
-
-    final_model = model.age_estimator()
-    final_model.summary()
+    final_model = model.age_estimator(initializer=tf.keras.initializers.HeNormal())
+    es = tf.keras.callbacks.EarlyStopping(monitor='val_mean_absolute_error', mode='min', verbose=1, patience=200)
+    mc = tf.keras.callbacks.ModelCheckpoint('best_age_model.h5', monitor='val_mean_absolute_error', mode='min', verbose=1, save_best_only=True)
     final_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss='mse', metrics=[tf.keras.metrics.MeanAbsoluteError()])
-    history = final_model.fit(train_images, train_labels, validation_data=(valid_images, valid_labels), epochs=300,
-                              batch_size=128)
+    history = final_model.fit(train_images, train_labels, validation_data=(valid_images, valid_labels), epochs=2000,
+                              batch_size=128, callbacks=[es, mc])
 
     print("Evaluate on test data")
     test_results = final_model.evaluate(test_images, test_labels, batch_size=128)
